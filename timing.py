@@ -59,4 +59,4 @@ def transcribe_with_word_time_offsets(speech_file, words_per_group=5):
     print("SRT file created: timing.srt")
 
 if __name__ == "__main__":
-    transcribe_with_word_time_offsets("speech.mp3", words_per_group=2)
+    transcribe_with_word_time_offsets("speech.mp3", words_per_group=3)
