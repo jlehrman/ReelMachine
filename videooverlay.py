@@ -61,7 +61,7 @@ def main():
 
     video = VideoFileClip(video_file).without_audio()
     video = crop_to_16_9(video)  # ensure 16:9
-
+    titleAudio = AudioFileClip("title.mp3")
     cues = parse_timing_file(timing_file)
     text_clips = []
     for start, end, text in cues:
@@ -69,33 +69,64 @@ def main():
         txt_clip = TextClip(
             font_file,
             text,
-            font_size=int(video.w * 0.075),
+            font_size=int(video.w * 0.07),
             color='black',
             method='caption',                  # Use 'caption' to enable text wrapping
             size=(int(video.w * 0.95), None),     # Set width to 90% of video width; height auto-calculated
             stroke_width=int(video.w * 0.0065),
-            stroke_color='white'
-        ).with_position(('center')).with_start(start).with_duration(duration)
+            stroke_color='white',
+            text_align = 'center'
+        ).with_position(('center')).with_start(start+titleAudio.duration).with_duration(duration)
 
         text_clips.append(txt_clip)
-
-    narration = AudioFileClip(narration_file)
+    titleTextClip = TextClip(
+        font_file,
+        filename = "title.txt",
+        font_size=int(video.w * 0.07),
+        margin=(20,20),
+        color='white',
+        size=(int(video.w*.85), None),
+        bg_color = (80,80,80),
+        method = 'caption'
+    ).with_position(('center')).with_duration(titleAudio.duration)
+    narration = AudioFileClip(narration_file).with_start(titleAudio.duration)
+    narration = CompositeAudioClip([titleAudio,narration])
     
-    music = AudioFileClip(music_file).with_volume_scaled(0.43)
-    
+    music = AudioFileClip(music_file).with_volume_scaled(0.35)
     music_looped = music.with_effects([afx.AudioLoop(duration=narration.duration+3)])
     
     video = video.with_effects([vfx.Loop(n=int((narration.duration+3)/video.duration))])
     video = video.with_duration(narration.duration+3)
 
-    all_clips = [video] + text_clips
+    all_clips = [video] + text_clips + [titleTextClip]
     final_video = CompositeVideoClip(all_clips)
 
     final_audio = CompositeAudioClip([narration, music_looped])
 
     final_video = final_video.with_audio(final_audio)
-
-    final_video.write_videofile(output_file, codec="libx264", audio_codec="aac")
+    
+    numParts = 0
+    while numParts < final_video.duration/65:
+        numParts+=1
+    print(f"Creating {numParts} part(s).")
+    if(numParts>0):
+        fraction = final_video.duration/numParts
+        subclip = final_video.subclipped(0,fraction)
+        subclip.write_videofile(f"output_part{1}.mp4")
+        for i in range(1,numParts):
+            part_label = TextClip(
+                font_file,
+                f"Part {i+1}/{numParts}",
+                font_size=int(video.w * 0.095),
+                bg_color = (255,0,10),
+                duration = 3
+            )
+            subclip = final_video.subclipped((i*fraction)-1,((i+1)*fraction))
+            subclip = CompositeVideoClip([subclip, part_label])
+            subclip.write_videofile(f"output_part{i+1}.mp4", fps=60)
+    else:
+        final_video.write_videofile(output_file, codec="libx264", audio_codec="aac")
+    
 
 if __name__ == "__main__":
     main()
